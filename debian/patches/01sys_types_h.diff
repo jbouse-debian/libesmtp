@@ -1,0 +1,14 @@
+diff -urN libesmtp-1.0.1/libesmtp.h libesmtp-1.0.1.new/libesmtp.h
+--- libesmtp-1.0.1/libesmtp.h	2003-09-11 18:40:40.000000000 +0000
++++ libesmtp-1.0.1.new/libesmtp.h	2004-05-02 00:38:42.000000000 +0000
+@@ -36,6 +36,10 @@
+  *  use to locate the next hop MTA are not implemented.
+  */
+ 
++#ifndef _SYS_TYPES_H
++#include <sys/types.h>
++#endif
++
+ #ifdef __cplusplus
+ extern "C" {
+ #endif

@@ -1,0 +1,5 @@
+usr/lib/*.a
+usr/lib/esmtp/*.a
+usr/lib/*.so
+usr/include
+usr/bin
