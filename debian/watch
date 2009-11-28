@@ -1,0 +1,2 @@
+version=2
+http://www.stafford.uklinux.net/libesmtp/download.html (?:.*/)?libesmtp-?_?([\d+\.]+|\d+)\.(tar.*|tgz|zip|gz|bz2|) debian uupdate
