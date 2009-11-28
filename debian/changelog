@@ -1,3 +1,11 @@
+libesmtp (1.0.4-3) unstable; urgency=low
+
+  * Update to 3.8.3 standards policy
+  * Acknowledge previous version fixed header.c issue 
+    (Closes: #294231) (LP: #227680)
+
+ -- Jeremy T. Bouse <jbouse@debian.org>  Sat, 28 Nov 2009 01:32:38 -0500
+
 libesmtp (1.0.4-2) unstable; urgency=low
 
   * Fix headers.c (Closes: #310968, #451860, #355568)
