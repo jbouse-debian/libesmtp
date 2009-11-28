@@ -2,13 +2,14 @@ Source: libesmtp
 Section: libs
 Priority: optional
 Maintainer: Jeremy T. Bouse <jbouse@debian.org>
-Build-Depends: debhelper (>> 3.0.0), libltdl3-dev, libssl-dev, autotools-dev
-Standards-Version: 3.7.3
+Build-Depends: debhelper (>> 7), libltdl3-dev, libssl-dev, autotools-dev
+Standards-Version: 3.8.3
+Homepage: http://www.stafford.uklinux.net/libesmtp/
 
 Package: libesmtp5
 Architecture: any
 Section: libs
-Depends: ${shlibs:Depends}
+Depends: ${shlibs:Depends}, ${misc:Depends}
 Replaces: libesmtp1
 Conflicts: libesmtp1 (<= 0.8.0-1)
 Description: LibESMTP SMTP client library
@@ -21,7 +22,7 @@ Description: LibESMTP SMTP client library
 Package: libesmtp-dev
 Architecture: any
 Section: libdevel
-Depends: libesmtp5 (= ${binary:Version}), libc6-dev
+Depends: libesmtp5 (= ${binary:Version}), libc6-dev, ${misc:Depends}
 Description: LibESMTP SMTP client library development files
  LibESMTP is a library to manage posting (or submission of) electronic
  mail using SMTP to a preconfigured Mail Transport Agent (MTA) such as
