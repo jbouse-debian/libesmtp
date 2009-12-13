@@ -1,3 +1,10 @@
+libesmtp (1.0.4-4) unstable; urgency=low
+
+  * Add debian/watch file for DEHS
+  * debian/control: Add Vcs-* headers
+
+ -- Jeremy T. Bouse <jbouse@debian.org>  Sun, 13 Dec 2009 11:15:45 -0500
+
 libesmtp (1.0.4-3) unstable; urgency=low
 
   * Update to 3.8.3 standards policy
