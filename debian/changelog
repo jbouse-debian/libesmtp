@@ -1,3 +1,11 @@
+libesmtp (1.0.4-5) unstable; urgency=low
+
+  * debian/control: Updated Standards-Version to 3.9.0
+  * Fixes for CVE-2010-1192 handling NULL bytes (Closes: #572960) -
+    thanks to Jan Lieskovsky
+
+ -- Jeremy T. Bouse <jbouse@debian.org>  Wed, 21 Jul 2010 00:00:47 -0400
+
 libesmtp (1.0.4-4) unstable; urgency=low
 
   * Add debian/watch file for DEHS
