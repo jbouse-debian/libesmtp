@@ -1,3 +1,11 @@
+libesmtp (1.0.4-2+lenny1) stable-security; urgency=high
+
+  * Update debhelper compat and Standards-Version
+  * Fixes for CVE-2010-1192 handling NULL bytes (Closes: #572960) -
+    thanks to Jan Lieskovsky
+
+ -- Jeremy T. Bouse <jbouse@debian.org>  Wed, 21 Jul 2010 08:00:23 -0400
+
 libesmtp (1.0.4-2) unstable; urgency=low
 
   * Fix headers.c (Closes: #310968, #451860, #355568)
