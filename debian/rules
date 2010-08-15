@@ -1,132 +1,16 @@
 #!/usr/bin/make -f
-# Made with the aid of debmake, by Christoph Lameter,
-# based on the sample debian/rules file for GNU hello by Ian Jackson.
 
-package=libesmtp
+export DH_VERBOSE=1
 
-prefix := /usr
+%:
+	dh --with quilt $@
 
-SHELL = /bin/bash
-CC = gcc
-CFLAGS := -O2 -Wall
-IE := install -m755 -s
-ID := install -m644
-CHMOD := chmod
+override_dh_auto_configure:
+	dh_auto_configure -- --with-auth-plugin-dir="/usr/lib/esmtp" --enable-etrn
 
-major=5
-
-# Some special build options
-ifneq (,$(findstring debug,$(DEB_BUILD_OPTIONS)))
-  CFLAGS += -g
-  ifneq (,$(findstring nostrip,$(DEB_BUILD_OPTIONS)))
-    IE := install -m755
-  endif
-endif
-
-# the dbs rules
-TAR_DIR := libesmtp-1.0.4
-include debian/scripts/dbs-build.mk
-
-# dpkg-arch rules
-ifeq (,$(DEB_BUILD_GNU_TYPE))
-  include debian/scripts/dpkg-arch.mk
-endif
-
-configure_args := --prefix=${prefix} 				\
-	--mandir=${prefix}/share/man				\
-	--infodir=${prefix}/share/info				\
-	--with-auth-plugin-dir=${prefix}/lib/esmtp		\
-	--enable-pthreads --enable-etrn				\
-	--enable-require-all-recipients				\
-	--with-openssl=yes
-
-ifneq ($(DEB_HOST_GNU_TYPE),$(DEB_BUILD_GNU_TYPE))
-  configure_args += --enable-x-compile --build=$(DEB_BUILD_GNU_TYPE)
-endif
-
-$(BUILD_TREE)/configure: $(BUILD_TREE)/configure.in
-	cd $(BUILD_TREE) && autoconf
-
-stampdir/build: stampdir/configure $(dh_mak_deps)
-	$(checkdir)
-	( cd build-tree/$(TAR_DIR) && $(MAKE) )
-	touch stampdir/build
-
-build: stampdir/build
-
-stampdir/configure: $(unpacked) $(patched)
-	cd build-tree/$(TAR_DIR) && \
-		rm -f config.sub && \
-		rm -f config.guess && \
-		cp /usr/share/misc/config.sub . && \
-		cp /usr/share/misc/config.guess . && \
-		CC="$(CC) $(CFLAGS) $(DEBUG)" \
-		PTHREAD_LIBS="-lpthread" \
-		./configure $(configure_args) 
-	touch stampdir/configure
-
-configure: stampdir/configure
-
-clean:
-	$(checkroot)
-	dh_clean
-	rm -rf stampdir build-tree
-	rm -f stamp-build stamp-configure debian/files.saved debian/files
-	rm -rf build
-	rm -f $$(find . -type l) $$(find . -name "*~" -o -name "*.o")
-	rm -rf debian/$(package)$(major) debian/$(package)-dev
-	rm -rf debian/{files*,*substvars*,*.gz} core
-	rm -f $$(find * -name "*.orig")
-
-stampdir/install: stampdir/build
-	$(checkroot)
-	dh_prep
-	dh_installdirs
-	dh_installmenu
-
-	cwd=`pwd` ; \
-	set -e ; \
-	( cd build-tree/$(TAR_DIR) && \
-		$(MAKE) install DESTDIR=$$cwd/debian/tmp )
-
+override_dh_install:
+	dh_install
 	dh_movefiles
-	touch stampdir/install
 
-install: stampdir/install
-
-binary-indep: checkroot build install
-# We have nothing to do by default
-
-binary-arch: checkroot build install
-	$(checkroot)
-	dh_installdocs -a build-tree/$(TAR_DIR)/README
-	dh_installexamples -a
-	dh_installmenu -a
-	dh_installman -a
-	dh_installinfo -a
-#	dh_undocumented -a
-	dh_installchangelogs -a build-tree/$(TAR_DIR)/ChangeLog
-	dh_link -a
-	dh_compress -a 
-	dh_fixperms -a
-#	dh_makeshlibs -a -V
-	dh_installdeb -a
-	dh_shlibdeps -a
-	dh_gencontrol -a -u-isp
-	dh_strip -a
-	dh_md5sums -a
-	dh_fixperms -a
-	dh_builddeb -a
-	if egrep "^DEBUG" debian/rules; then false; fi
-
-binary: binary-indep binary-arch
-
-define checkdir
-	test -f debian/rules
-endef
-
-checkroot:
-	$(checkdir)
-	test root = "`whoami`"
-
-.PHONY: binary binary-arch binary-indep clean checkroot
+override_dh_makeshlibs:
+	dh_makeshlibs -Xusr/lib/esmtp
