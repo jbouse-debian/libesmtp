@@ -1,3 +1,5 @@
+Description: Include sys/types.h header file
+Author: Jeremy T. Bouse <jbouse@debian.org>
 diff -urN libesmtp-1.0.1/libesmtp.h libesmtp-1.0.1.new/libesmtp.h
 --- libesmtp-1.0.1/libesmtp.h	2003-09-11 18:40:40.000000000 +0000
 +++ libesmtp-1.0.1.new/libesmtp.h	2004-05-02 00:38:42.000000000 +0000
