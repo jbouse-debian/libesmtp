@@ -6,7 +6,7 @@ Build-Depends: debhelper (>> 8.0.0),
 	libltdl3-dev,
 	libssl-dev,
 	autotools-dev
-Standards-Version: 3.9.2
+Standards-Version: 3.9.5
 Homepage: http://www.stafford.uklinux.net/libesmtp/
 Vcs-Git: git://git.debian.org/collab-maint/libesmtp.git
 Vcs-Browser: http://git.debian.org/?p=collab-maint/libesmtp.git
