@@ -1,3 +1,21 @@
+libesmtp (1.0.6-2) unstable; urgency=low
+
+  * Update package to clean up lintian findings
+  * Remove .gitignore
+  * debian/source/local-options: set unapply-patches option
+  * debian/watch: Don't need to use uupdate with gbp
+  * debian/control: Update Standards-Version
+  * debian/rules: Add '--with autotools-dev' to debhelper.
+    Thanks to Mattias Klose (Closes: #727287)
+  * debian/control: Update Vcs locations
+  * debian/compat: Update debhelper compat to v9
+  * debian/libesmtp6.postinst: Remove unnecessary postinst script
+  * This is the Wookey untested special due to impatience and inability
+    to actually attempt to communicate with fellow developers so I've
+    not had time to fully test before uploading and releasing.
+
+ -- Jeremy T. Bouse <jbouse@debian.org>  Mon, 23 Jun 2014 08:16:57 -0400
+
 libesmtp (1.0.6-1) unstable; urgency=low
 
   * New upstream release
@@ -23,7 +41,7 @@ libesmtp (1.0.4-4) unstable; urgency=low
 libesmtp (1.0.4-3) unstable; urgency=low
 
   * Update to 3.8.3 standards policy
-  * Acknowledge previous version fixed header.c issue 
+  * Acknowledge previous version fixed header.c issue
     (Closes: #294231) (LP: #227680)
 
  -- Jeremy T. Bouse <jbouse@debian.org>  Sat, 28 Nov 2009 01:32:38 -0500
@@ -75,7 +93,7 @@ libesmtp (1.0.1-0.1) unstable; urgency=high
 
 libesmtp (1.0-2) unstable; urgency=low
 
-  * Build-depend on autotools-dev to use new config.{sub,guess} 
+  * Build-depend on autotools-dev to use new config.{sub,guess}
     (Closes: 182160)
 
  -- Jeremy T. Bouse <jbouse@debian.org>  Sun, 23 Feb 2003 10:25:48 -0800
@@ -98,25 +116,25 @@ libesmtp (0.8.11-2) unstable; urgency=low
 libesmtp (0.8.11-1) unstable; urgency=low
 
   * New upstream release
-  * Corrects buffer overflow bug (Closes: #136491) 
+  * Corrects buffer overflow bug (Closes: #136491)
 
  -- Jeremy T. Bouse <jbouse@debian.org>  Wed,  6 Mar 2002 08:37:48 -0800
 
 libesmtp (0.8.10p1-1) unstable; urgency=low
 
-  * New upstream release 
+  * New upstream release
 
  -- Jeremy T. Bouse <jbouse@debian.org>  Thu, 31 Jan 2002 08:11:40 -0800
 
 libesmtp (0.8.9-1) unstable; urgency=low
 
-  * New upstream release 
+  * New upstream release
 
  -- Jeremy T. Bouse <jbouse@debian.org>  Tue, 22 Jan 2002 14:23:27 -0800
 
 libesmtp (0.8.8-1) unstable; urgency=low
 
-  * New upstream release 
+  * New upstream release
 
  -- Jeremy T. Bouse <jbouse@debian.org>  Wed,  5 Dec 2001 08:00:38 -0800
 
@@ -124,13 +142,13 @@ libesmtp (0.8.7-3) unstable; urgency=low
 
   * Corrected bug in crammd5/md5.h (Closes: #121658)
     Diff patch sent upstream as appears to be a mistake from 0.8.6
-    variable declaration change 
+    variable declaration change
 
  -- Jeremy T. Bouse <jbouse@debian.org>  Thu, 29 Nov 2001 11:51:35 -0800
 
 libesmtp (0.8.7-2) unstable; urgency=low
 
-  * Fix problem with thinking uploads were NMUs 
+  * Fix problem with thinking uploads were NMUs
 
  -- Jeremy T. Bouse <jbouse@debian.org>  Tue, 27 Nov 2001 12:17:57 -0800
 
@@ -145,13 +163,13 @@ libesmtp (0.8.6-2) unstable; urgency=low
 
   * Added Build-Conflicts in debian/control to keep from being built
     against SSL (violation of current crypto in main policy) as been
-    discovered during examination of buildd logs (specifically m68k) 
+    discovered during examination of buildd logs (specifically m68k)
 
  -- Jeremy T. Bouse <jbouse@debian.org>  Sun,  4 Nov 2001 00:52:21 -0800
 
 libesmtp (0.8.6-1) unstable; urgency=low
 
-  * New upstream release 
+  * New upstream release
 
  -- Jeremy T. Bouse <jbouse@debian.org>  Tue, 30 Oct 2001 21:55:18 -0800
 
@@ -163,7 +181,7 @@ libesmtp (0.8.4-1) unstable; urgency=low
 
 libesmtp (0.8.3-1) unstable; urgency=low
 
-  * New upstream bug-fix release 
+  * New upstream bug-fix release
 
  -- Jeremy T. Bouse <jbouse@debian.org>  Mon,  9 Jul 2001 09:40:26 -0700
 
@@ -190,7 +208,7 @@ libesmtp (0.8.0-1) unstable; urgency=low
   * New upstream release
   * Notes from author regarding release:
       Support for more SMTP extensions. Socket buffering reworked to use
-      non-blocking sockets (to avoid the PIPELINING deadlock situation 
+      non-blocking sockets (to avoid the PIPELINING deadlock situation
       described in RFC 2920).
 
  -- Jeremy T. Bouse <jbouse@debian.org>  Fri, 15 Jun 2001 08:47:42 -0700
@@ -203,13 +221,13 @@ libesmtp (0.7.4-4) unstable; urgency=low
 
 libesmtp (0.7.4-3) unstable; urgency=low
 
-  * Added lintian overrides for module plug-ins 
+  * Added lintian overrides for module plug-ins
 
  -- Jeremy T. Bouse <jbouse@debian.org>  Mon, 11 Jun 2001 10:22:15 -0700
 
 libesmtp (0.7.4-2) unstable; urgency=low
 
-  * Corrected Build-Depends (closes: #100045) 
+  * Corrected Build-Depends (closes: #100045)
 
  -- Jeremy T. Bouse <jbouse@debian.org>  Sat,  9 Jun 2001 00:18:17 -0700
 
@@ -222,7 +240,7 @@ libesmtp (0.7.4-1) unstable; urgency=low
 libesmtp (0.7.3-2) unstable; urgency=low
 
   * Corrected error in Section (devel -> libs)
-  * Included manpage for libesmtp-config (produced via help2man) 
+  * Included manpage for libesmtp-config (produced via help2man)
 
  -- Jeremy T. Bouse <jbouse@debian.org>  Tue,  5 Jun 2001 15:37:57 -0700
 
