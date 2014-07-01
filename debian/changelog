@@ -1,3 +1,10 @@
+libesmtp (1.0.6-3) unstable; urgency=low
+
+  * Fix FTBFS due to debhelper compat 9 changes to lib directories.
+    Thanks to Salvatore Bonaccorso <carnil> (Closes: #753027)
+
+ -- Jeremy T. Bouse <jbouse@debian.org>  Tue, 01 Jul 2014 11:56:28 -0400
+
 libesmtp (1.0.6-2) unstable; urgency=low
 
   * Update package to clean up lintian findings
