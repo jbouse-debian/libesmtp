@@ -1,3 +1,10 @@
+libesmtp (1.0.6-4) unstable; urgency=medium
+
+  * Fix FTBFS bug replacing autotools-dev with autoreconf.
+    Thanks to Frederic Bonnard <frediz@linux.vnet.ibm.com> (Closes: 757915)
+
+ -- Jeremy T. Bouse <jbouse@debian.org>  Tue, 26 Aug 2014 14:57:33 -0700
+
 libesmtp (1.0.6-3) unstable; urgency=low
 
   * Fix FTBFS due to debhelper compat 9 changes to lib directories.
