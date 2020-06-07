@@ -7,7 +7,7 @@ Build-Depends: debhelper (>= 10~),
 	libssl-dev
 Standards-Version: 3.9.5
 Homepage: http://www.stafford.uklinux.net/libesmtp/
-Vcs-Git: git://github.com/jbouse-debian/libesmtp.git
+Vcs-Git: https://github.com/jbouse-debian/libesmtp.git
 Vcs-Browser: https://github.com/jbouse-debian/libesmtp
 
 Package: libesmtp6
