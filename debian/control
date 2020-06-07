@@ -4,8 +4,7 @@ Priority: optional
 Maintainer: Jeremy T. Bouse <jbouse@debian.org>
 Build-Depends: debhelper (>= 10~),
 	libltdl3-dev,
-	libssl-dev,
-	dh-autoreconf
+	libssl-dev
 Standards-Version: 3.9.5
 Homepage: http://www.stafford.uklinux.net/libesmtp/
 Vcs-Git: git://github.com/jbouse-debian/libesmtp.git
