@@ -1,0 +1,9 @@
+{
+  global:
+    smtp_*;
+    _smtp_*;
+    auth_*;
+  local:
+    *;
+};
+

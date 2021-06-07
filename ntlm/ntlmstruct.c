@@ -5,7 +5,7 @@
  *  formatted electronic mail messages using the SMTP protocol described
  *  in RFC 2821.
  *
- *  Copyright (C) 2002  Brian Stafford  <brian@stafford.uklinux.net>
+ *  Copyright (C) 2002	Brian Stafford	<brian@stafford.uklinux.net>
  *
  *  This library is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU Lesser General Public
@@ -21,9 +21,7 @@
  *  License along with this library; if not, write to the Free Software
  *  Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
-#if HAVE_CONFIG_H
 #include <config.h>
-#endif
 
 #include <stdlib.h>
 #include <string.h>
@@ -57,7 +55,7 @@ typedef	uint32 unsigned32_t;
 /* Everything in NTLM is little endian binary, therefore byte swapping
    is needed on big endian platforms.  For simplicity, always provide
    byte swapping functions rather than trying to detect the local
-   platform's support.  These functions make no effort to be efficient
+   platform's support.	These functions make no effort to be efficient
    since this code doesn't require efficient byte swapping. */
 
 #define SWAP(a,b)	do { unsigned char s = u.swap[(a)];	\
@@ -113,19 +111,6 @@ write_uint32 (char *buf, size_t offset, unsigned int value)
 }
 
 static inline unsigned int
-read_uint16 (const char *buf, size_t offset)
-{
-  unsigned16_t i16;
-
-  assert (sizeof i16 == 2);
-  memcpy (&i16, buf + offset, sizeof i16);
-#ifdef WORDS_BIGENDIAN
-  i16 = bswap_16 (i16);
-#endif
-  return i16;
-}
-
-static inline unsigned int
 read_uint32 (const char *buf, size_t offset)
 {
   unsigned32_t i32;
@@ -140,7 +125,7 @@ read_uint32 (const char *buf, size_t offset)
 
 static inline void
 write_string (char *buf, size_t offset, size_t *str_offset,
-              const void *data, size_t len)
+	      const void *data, size_t len)
 {
   if (data == NULL)
     len = 0;
@@ -179,15 +164,14 @@ write_string (char *buf, size_t offset, size_t *str_offset,
 static const char NTLMSSP[] = "NTLMSSP";
 
 /* Build a NTLM type 1 structure in the buffer.
-        domain - the NT domain the workstation belongs to
+	domain - the NT domain the workstation belongs to
    workstation - the NT (netbios) name of the workstation */
 size_t
 ntlm_build_type_1 (char *buf, size_t buflen, unsigned int flags,
-                   const char *domain, const char *workstation)
+		   const char *domain, const char *workstation)
 {
   size_t offset = T1SIZE;
   size_t len;
-  unsigned char *up;
   char string[256];
 
   if (buflen < offset)
@@ -195,25 +179,13 @@ ntlm_build_type_1 (char *buf, size_t buflen, unsigned int flags,
   memcpy (buf, NTLMSSP, 8);
   write_uint32 (buf, MSGTYPE, 1);
   write_uint32 (buf, T1FLAGS, flags);
-  up = NULL;
-  len = 0;
-  if (domain != NULL)
-    {
-      len = strlen (domain);
-      if (offset + len > buflen)
-	return 0;
-      lm_uccpy (string, len, domain);
-    }
+  len = lm_uccpy (string, sizeof string, domain);
+  if (offset + len > buflen)
+    return 0;
   write_string (buf, T1DOMAIN, &offset, string, len);
-  up = NULL;
-  len = 0;
-  if (workstation != NULL)
-    {
-      len = strlen (workstation);
-      if (offset + len > buflen)
-	return 0;
-      lm_uccpy (string, len, workstation);
-    }
+  len = lm_uccpy (string, sizeof string, workstation);
+  if (offset + len > buflen)
+    return 0;
   write_string (buf, T1WKSTN, &offset, string, len);
   return offset;
 }
@@ -221,7 +193,7 @@ ntlm_build_type_1 (char *buf, size_t buflen, unsigned int flags,
 /* Build a NTLM type 2 structure in the buffer */
 size_t
 ntlm_build_type_2 (char *buf, size_t buflen, unsigned int flags,
-                   const unsigned char *nonce, const char *domain)
+		   const unsigned char *nonce, const char *domain)
 {
   size_t offset = T2SIZE;
   size_t len;
@@ -232,16 +204,11 @@ ntlm_build_type_2 (char *buf, size_t buflen, unsigned int flags,
     return 0;
   memcpy (buf, NTLMSSP, 8);
   write_uint32 (buf, MSGTYPE, 2);
-  up = NULL;
-  len = 0;
-  if (domain != NULL)
-    {
-      len = strlen (domain);
-      if (offset + 2 * len > buflen)
-	return 0;
-      up = nt_unicode (lm_uccpy (string, len, domain), 2 * len);
-    }
-  write_string (buf, T2AUTHTARGET, &offset, up, len);
+  len = lm_uccpy (string, sizeof string, domain);
+  if (offset + 2 * len > buflen)
+    return 0;
+  up = nt_unicode (string, len);
+  write_string (buf, T2AUTHTARGET, &offset, up, 2 * len);
   if (up != NULL)
     free (up);
   write_uint32 (buf, T2FLAGS, flags);
@@ -253,8 +220,8 @@ ntlm_build_type_2 (char *buf, size_t buflen, unsigned int flags,
 /* Build a NTLM type 3 structure in the buffer */
 size_t
 ntlm_build_type_3 (char *buf, size_t buflen, unsigned int flags,
-                   const unsigned char *lm_resp, const unsigned char *nt_resp,
-                   const char *domain, const char *user, const char *workstation)
+		   const unsigned char *lm_resp, const unsigned char *nt_resp,
+		   const char *domain, const char *user, const char *workstation)
 {
   size_t offset = T3SIZE;
   size_t len;
@@ -267,39 +234,24 @@ ntlm_build_type_3 (char *buf, size_t buflen, unsigned int flags,
   write_uint32 (buf, MSGTYPE, 3);
   write_string (buf, T3LMRESPONSE, &offset, lm_resp, 24);
   write_string (buf, T3NTRESPONSE, &offset, nt_resp, 24);
-  up = NULL;
-  len = 0;
-  if (domain != NULL)
-    {
-      len = strlen (domain);
-      if (offset + 2 * len > buflen)
-	return 0;
-      up = nt_unicode (lm_uccpy (string, len, domain), 2 * len);
-    }
+  len = lm_uccpy (string, sizeof string, domain);
+  if (offset + 2 * len > buflen)
+    return 0;
+  up = nt_unicode (string, len);
   write_string (buf, T3DOMAIN, &offset, up, 2 * len);
   if (up != NULL)
     free (up);
-  up = NULL;
-  len = 0;
-  if (user != NULL)
-    {
-      len = strlen (user);
-      if (offset + 2 * len > buflen)
-	return 0;
-      up = nt_unicode (lm_uccpy (string, len, user), 2 * len);
-    }
+  len = lm_uccpy (string, sizeof string, user);
+  if (offset + 2 * len > buflen)
+    return 0;
+  up = nt_unicode (string, len);
   write_string (buf, T3USER, &offset, up, 2 * len);
   if (up != NULL)
     free (up);
-  up = NULL;
-  len = 0;
-  if (workstation != NULL)
-    {
-      len = strlen (workstation);
-      if (offset + 2 * len > buflen)
-	return 0;
-      up = nt_unicode (lm_uccpy (string, len, workstation), 2 * len);
-    }
+  len = lm_uccpy (string, sizeof string, workstation);
+  if (offset + 2 * len > buflen)
+    return 0;
+  up = nt_unicode (string, len);
   write_string (buf, T3WKSTN, &offset, up, 2 * len);
   if (up != NULL)
     free (up);
@@ -315,7 +267,7 @@ ntlm_build_type_3 (char *buf, size_t buflen, unsigned int flags,
    supplied buffer (which must be eight bytes long) */
 size_t
 ntlm_parse_type_2 (const char *buf, size_t buflen, unsigned int *flags,
-                   unsigned char *nonce, char **domain)
+		   unsigned char *nonce, char **domain)
 {
   if (buflen < T2SIZE)
     return 0;

@@ -1,6 +1,6 @@
 /*
  *  A libESMTP Example Application.
- *  Copyright (C) 2001,2002  Brian Stafford <brian@stafford.uklinux.net>
+ *  Copyright (C) 2001,2002,2021  Brian Stafford <https://libesmtp.github.io/>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published
@@ -13,8 +13,7 @@
  *  GNU General Public License for more details.
  *
  *  You should have received a copy of the GNU General Public License
- *  along with this program; if not, write to the Free Software
- *  Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ *  along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
 /* This program accepts a single file argument followed by a list of
@@ -76,9 +75,12 @@ void print_recipient_status (smtp_recipient_t recipient,
 int authinteract (auth_client_request_t request, char **result, int fields,
                   void *arg);
 int tlsinteract (char *buf, int buflen, int rwflag, void *arg);
- void event_cb (smtp_session_t session, int event_no, void *arg, ...);
+int handle_invalid_peer_certificate(long vfy_result);
+void event_cb (smtp_session_t session, int event_no, void *arg, ...);
 void usage (void);
 void version (void);
+/* FIXME getpass() is obsolete - previously declared in unistd.h */
+extern char *getpass(const char *prompt);
 
 int
 main (int argc, char **argv)
@@ -377,6 +379,7 @@ monitor_cb (const char *buf, int buflen, int writing, void *arg)
    putc ('\n', fp);
 }
 
+
 /* Callback to request user/password info.  Not thread safe. */
 int
 authinteract (auth_client_request_t request, char **result, int fields,
@@ -398,7 +401,9 @@ authinteract (auth_client_request_t request, char **result, int fields,
       else
 	{
 	  tty = open ("/dev/tty", O_RDWR);
-	  write (tty, prompt, n);
+	  if (write (tty, prompt, n) != n)
+	    {
+	    }
 	  n = read (tty, rp, sizeof resp - (rp - resp));
 	  close (tty);
 	  p = rp + n;
@@ -425,6 +430,7 @@ tlsinteract (char *buf, int buflen, int rwflag unused, void *arg unused)
   strcpy (buf, pw);
   return len;
 }
+
 int
 handle_invalid_peer_certificate(long vfy_result)
 {
@@ -489,7 +495,7 @@ handle_invalid_peer_certificate(long vfy_result)
   return 1; /* Accept the problem */
 }
 
-void event_cb (smtp_session_t session, int event_no, void *arg,...)
+void event_cb (smtp_session_t session unused, int event_no, void *arg,...)
 {
   va_list alist;
   int *ok;
@@ -540,7 +546,7 @@ void event_cb (smtp_session_t session, int event_no, void *arg,...)
 void
 usage (void)
 {
-  fputs ("Copyright (C) 2001  Brian Stafford <brian@stafford.uklinux.net>\n"
+  fputs ("Copyright © 2001,2002,2021 Brian Stafford <https://libesmtp.github.io/>\n"
 	 "\n"
 	 "This program is free software; you can redistribute it and/or modify\n"
 	 "it under the terms of the GNU General Public License as published\n"
@@ -553,25 +559,24 @@ usage (void)
 	 "GNU General Public License for more details.\n"
 	 "\n"
 	 "You should have received a copy of the GNU General Public License\n"
-	 "along with this program; if not, write to the Free Software\n"
-	 "Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA\n"
+         "along with this program. If not, see <https://www.gnu.org/licenses/>.\n"
 	 "\n"
          "usage: mail-file [options] file mailbox [mailbox ...]\n"
-         "\t-h,--host=hostname[:service] -- set SMTP host and service (port)\n"
-         "\t-f,--reverse-path=mailbox -- set reverse path\n"
-         "\t-s,--subject=text -- set subject of the message\n"
-         "\t-n,--notify=success|failure|delay|never -- request DSN\n"
-         "\t-d,--mdn -- request MDN\n"
-         "\t-m,--monitor -- watch the protocol session with the server\n"
-         "\t-c,--crlf -- translate line endings from \\n to CR-LF\n"
-         "\t-t,--tls -- use STARTTLS extension if possible\n"
-         "\t-T,--require-tls -- require use of STARTTLS extension\n"
+         "\t-h --host hostname[:service] -- set SMTP host and service (port)\n"
+         "\t-f --reverse-path mailbox -- set reverse path\n"
+         "\t-s --subject text -- set subject of the message\n"
+         "\t-n --notify success|failure|delay|never -- request DSN\n"
+         "\t-d --mdn -- request MDN\n"
+         "\t-m --monitor -- watch the protocol session with the server\n"
+         "\t-c --crlf -- translate line endings from \\n to CR-LF\n"
+         "\t-t --tls -- use STARTTLS extension if possible\n"
+         "\t-T --require-tls -- require use of STARTTLS extension\n"
          "\t   --noauth -- do not attempt to authenticate to the MSA\n"
-         "\t--version -- show version info and exit\n"
-         "\t--help -- this message\n"
+         "\t   --version -- show version info and exit\n"
+         "\t   --help -- this message\n"
          "\n"
          "Specify the file argument as \"-\" to read standard input.\n"
-         "The input must be in RFC 2822 format, that is, it must consist\n"
+         "The input must be in RFC 5322 format, that is it must consist\n"
          "of a sequence of message headers terminated by a blank line and\n"
          "followed by the message body.  Lines must be terminated with the\n"
          "canonic CR-LF sequence unless the --crlf flag is specified.\n"

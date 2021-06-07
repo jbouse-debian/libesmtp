@@ -20,17 +20,15 @@
  *  Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
-#ifdef HAVE_CONFIG_H
 #include <config.h>
-#endif
 
 #include <assert.h>
 
-#ifdef USE_SASL
 /* Support for the SMTP AUTH verb.
  */
 #include <stdlib.h>
 #include <string.h>
+#include <strings.h>
 #include <ctype.h>
 #include <stdarg.h>
 #include <unistd.h>
@@ -48,6 +46,37 @@
 #include "base64.h"
 #include "protocol.h"
 
+/**
+ * DOC: RFC 4954
+ *
+ * Auth Extension
+ * --------------
+ *
+ * When enabled and the SMTP server advertises the AUTH extension, libESMTP
+ * will attempt to authenticate to the SMTP server before transferring any
+ * messages.
+ *
+ * Authentication Contexts
+ * ~~~~~~~~~~~~~~~~~~~~~~~
+ *
+ * A separate authentication context must be created for each SMTP session.
+ * The application is responsible for destroying context.  The application
+ * should either call smtp_destroy_session() or call smtp_auth_set_context()
+ * with context set to %NULL before doing so.  The authentication API is
+ * described separately.
+ */
+
+/**
+ * smtp_auth_set_context() - Set authentication context.
+ * @session: The session.
+ * @context: The auth context.
+ *
+ * Enable the SMTP AUTH verb if @context is not %NULL or disable it when
+ * @context is %NULL.  @context must be obtained from the SASL (RFC 4422)
+ * client library API defined in ``auth-client.h``.
+ *
+ * Returns: Non zero on success, zero on failure.
+ */
 int
 smtp_auth_set_context (smtp_session_t session, auth_context_t context)
 {
@@ -271,36 +300,3 @@ rsp_auth2 (siobuf_t conn, smtp_session_t session)
 {
   rsp_auth (conn, session);
 }
-
-#else
-
-/* Define stubs for some of the SMTP AUTH support. */
-#include <stdlib.h>
-#include "auth-client.h"
-#include "libesmtp-private.h"
-
-int
-smtp_auth_set_context (smtp_session_t session, auth_context_t context)
-{
-  SMTPAPI_CHECK_ARGS (session != NULL, 0);
-
-  return 0;
-}
-
-void
-set_auth_mechanisms (smtp_session_t session, const char *mechanisms)
-{
-}
-
-int
-select_auth_mechanism (smtp_session_t session)
-{
-  return 0;
-}
-
-void
-destroy_auth_mechanisms (smtp_session_t session)
-{
-}
-
-#endif
