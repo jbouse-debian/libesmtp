@@ -1,0 +1,21 @@
+From: "Jeremy T. Bouse" <jbouse@debian.org>
+Date: Mon, 7 Jun 2021 20:28:24 -0400
+Subject: Update libESMTP SONAME version on build
+
+---
+ meson.build | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/meson.build b/meson.build
+index 72e23c3..e2b8a44 100644
+--- a/meson.build
++++ b/meson.build
+@@ -208,7 +208,7 @@ vflag = '-Wl,--version-script,@0@/@1@'.format(meson.current_source_dir(), mapfil
+ 
+ lib = library('esmtp', sources,
+ 	      link_args : vflag, link_depends : mapfile,
+-	      soversion : libesmtp_so_version,
++	      version : libesmtp_so_version,
+ 	      dependencies : deps,
+ 	      install : true)
+ 
