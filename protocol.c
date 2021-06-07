@@ -24,12 +24,11 @@
    commands and their extended parameters.  Extended commands are mostly
    in files of their own. */
 
-#ifdef HAVE_CONFIG_H
 #include <config.h>
-#endif
 
 #include <stdlib.h>
 #include <string.h>
+#include <strings.h>
 #include <ctype.h>
 #include <stdarg.h>
 #include <unistd.h>
@@ -40,8 +39,6 @@
 #include <sys/socket.h>
 #if HAVE_LWRES_NETDB_H
 # include <lwres/netdb.h>
-#elif !HAVE_GETADDRINFO
-# include "getaddrinfo.h"
 #else
 # include <netdb.h>
 #endif
@@ -198,18 +195,15 @@ do_session (smtp_session_t session)
         }
     }
 
-  /* Connect to the SMTP server.  The following code will only work for
-     socket connections at present.  This will eventually change to
-     permit connections on any type of file descriptor, e.g. for LMTP
-     servers or forking an SMTP server which can run the protocol on
-     its standard input. */
+  /* Connect to the SMTP server. */
 
   errno = 0;
   nodename = (session->host == NULL || *session->host == '\0') ? NULL
 							       : session->host;
-  /* Use the RFC 2553/Posix resolver interface.  This allows for much
+  /* Use the RFC 3493/Posix resolver interface.  This allows for much
      cleaner code, protocol independence and thread safety. */
   memset (&hints, 0, sizeof hints);
+  hints.ai_flags = AI_CANONNAME;
   hints.ai_family = PF_UNSPEC;
   hints.ai_socktype = SOCK_STREAM;
   err = getaddrinfo (nodename, session->port, &hints, &res);
@@ -218,6 +212,8 @@ do_session (smtp_session_t session)
       set_herror (err);
       return 0;
     }
+
+  session->canon = res->ai_canonname != NULL ? strdup (res->ai_canonname) : NULL;
 
   /* Try to establish an SMTP session with each host in turn until one
      succeeds.  */
@@ -287,7 +283,7 @@ do_session (smtp_session_t session)
 	 through the messages and recipients within the session.
 
 	 The protocol functions set a few timeouts as they progress.  The
-	 values set are those reccommended in RFC 2821.
+	 values set are those recommended in RFC 5321.
 
 	 [is it just me, or does everybody find that it's easier to implement
 	  protocols on the server side?]
@@ -728,13 +724,13 @@ cb_ehlo (smtp_session_t session, char *buf)
      in the future so it is not an error to have an unrecognised
      extension keyword. */
 
-  if (strcasecmp (token, "ENHANCEDSTATUSCODES") == 0)	/* RFC 1893, RFC 2034 */
+  if (strcasecmp (token, "ENHANCEDSTATUSCODES") == 0)	/* RFC 3463, RFC 2034 */
     session->extensions |= EXT_ENHANCEDSTATUSCODES;
   else if (strcasecmp (token, "PIPELINING") == 0)	/* RFC 2920 */
     session->extensions |= EXT_PIPELINING;
-  else if (strcasecmp (token, "DSN") == 0)		/* RFC 1891 */
+  else if (strcasecmp (token, "DSN") == 0)		/* RFC 3461 */
     session->extensions |= EXT_DSN;
-  else if (strcasecmp (token, "AUTH") == 0)		/* RFC 2554 */
+  else if (strcasecmp (token, "AUTH") == 0)		/* RFC 4954 */
     {
       session->extensions |= EXT_AUTH;
       set_auth_mechanisms (session, p);
@@ -758,7 +754,7 @@ cb_ehlo (smtp_session_t session, char *buf)
     session->extensions |= EXT_CHUNKING;
   else if (strcasecmp (token, "BINARYMIME") == 0)	/* RFC 3030 */
     session->extensions |= EXT_BINARYMIME;
-  else if (strcasecmp (token, "8BITMIME") == 0)		/* RFC 1652 */
+  else if (strcasecmp (token, "8BITMIME") == 0)		/* RFC 6152 */
     session->extensions |= EXT_8BITMIME;
   else if (strcasecmp (token, "DELIVERBY") == 0)	/* RFC 2852 */
     {
@@ -917,7 +913,7 @@ rsp_helo (siobuf_t conn, smtp_session_t session)
     }
   if (code != 2)
     {
-      if (code != 4 || code != 5)
+      if (!(code == 4 || code == 5))
 	set_error (SMTP_ERR_INVALID_RESPONSE_STATUS);
       session->try_fallback_server = 1;
       session->rsp_state = S_quit;
@@ -1320,7 +1316,7 @@ cmd_data2 (siobuf_t conn, smtp_session_t session)
 	    goto break_2;
 	}
 
-      /* Line points to one or more lines of text forming an RFC 2822
+      /* Line points to one or more lines of text forming an RFC 5322
 	 header. */
 
       /* Header processing.  This function takes the "raw" header from

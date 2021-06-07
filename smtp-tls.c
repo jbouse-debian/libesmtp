@@ -20,15 +20,30 @@
  *  Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
-#ifdef HAVE_CONFIG_H
 #include <config.h>
-#endif
 
 /* Support for the SMTP STARTTLS verb.
  */
 
 
 #ifdef USE_TLS
+
+/**
+ * DOC: RFC 2487
+ *
+ * StartTLS Extension
+ * ------------------
+ *
+ * If OpenSSL is available when building libESMTP, support for the STARTTLS
+ * extension can be enabled.  If support is not enabled, the following APIs
+ * will always fail:
+ *
+ * * smtp_starttls_set_password_cb()
+ * * smtp_starttls_set_ctx()
+ * * smtp_starttls_enable()
+ *
+ * See also: `OpenSSL <https://www.openssl.org/>`_.
+ */
 
 /* This stuff doesn't belong here */
 /* vvvvvvvvvvv */
@@ -42,14 +57,13 @@
 #include <missing.h> /* declarations for missing library functions */
 /* ^^^^^^^^^^^ */
 
-#include <ctype.h>
 #include "libesmtp-private.h"
 #include "siobuf.h"
 #include "protocol.h"
+#include "attribute.h"
 
+#include "tlsutils.h"
 
-static int tls_init;
-static SSL_CTX *starttls_ctx;
 static smtp_starttls_passwordcb_t ctx_password_cb;
 static void *ctx_password_cb_arg;
 
@@ -57,48 +71,7 @@ static void *ctx_password_cb_arg;
 #ifdef USE_PTHREADS
 #include <pthread.h>
 static pthread_mutex_t starttls_mutex = PTHREAD_MUTEX_INITIALIZER;
-static pthread_mutex_t *openssl_mutex;
-
-static void
-openssl_mutexcb (int mode, int n,
-		 const char *file __attribute__ ((unused)),
-		 int line __attribute__ ((unused)))
-{
-  if (mode & CRYPTO_LOCK)
-    pthread_mutex_lock (&openssl_mutex[n]);
-  else
-    pthread_mutex_unlock (&openssl_mutex[n]);
-}
 #endif
-
-static int
-starttls_init (void)
-{
-  if (tls_init)
-    return 1;
-
-#ifdef USE_PTHREADS
-  /* Set up mutexes for the OpenSSL library */
-  if (openssl_mutex == NULL)
-    {
-      pthread_mutexattr_t attr;
-      int n;
-
-      openssl_mutex = malloc (sizeof (pthread_mutex_t) * CRYPTO_num_locks ());
-      if (openssl_mutex == NULL)
-        return 0;
-      pthread_mutexattr_init (&attr);
-      for (n = 0; n < CRYPTO_num_locks (); n++)
-	pthread_mutex_init (&openssl_mutex[n], &attr);
-      pthread_mutexattr_destroy (&attr);
-      CRYPTO_set_locking_callback (openssl_mutexcb);
-    }
-#endif
-  tls_init = 1;
-  SSL_load_error_strings ();
-  SSL_library_init ();
-  return 1;
-}
 
 /* This stuff is crude and doesn't belong here */
 /* vvvvvvvvvvv */
@@ -109,15 +82,83 @@ get_home (void)
   return getenv ("HOME");
 }
 
+#ifdef USE_XDG_DIRS
+# define XDG	".config"
+# define APP	"libesmtp"
+
+static const char *
+get_config_dir (void)
+{
+  return getenv ("XDG_CONFIG_DIR");
+}
+
 static char *
 user_pathname (char buf[], size_t buflen, const char *tail)
 {
   const char *home;
+  int len;
+
+  home = get_config_dir ();
+  if (home != NULL)
+    len = snprintf (buf, buflen, "%s/"APP"/%s", home, tail);
+  else
+    {
+      home = get_home ();
+      len = snprintf (buf, buflen, "%s/"XDG"/"APP"/%s", home, tail);
+    }
+  return (len >= 0 && (size_t) len < buflen) ? buf : NULL;
+}
+
+static char *
+host_pathname (char buf[], size_t buflen, smtp_session_t session,
+	       const char *dir, const char *suffix)
+{
+  const char *home, *host;
+  int len;
+
+  /* use the canonic hostname if available */
+  host = session->canon != NULL ? session->canon : session->host;
+
+  home = get_config_dir ();
+  if (home != NULL)
+    len = snprintf (buf, buflen, "%s/"APP"/%s/%s.%s", home, dir, host, suffix);
+  else
+    {
+      home = get_home ();
+      len = snprintf (buf, buflen, "%s/"XDG"/"APP"/%s/%s.%s",
+		      home, dir, host, suffix);
+    }
+  return (len >= 0 && (size_t) len < buflen) ? buf : NULL;
+}
+
+#else
+
+static char *
+user_pathname (char buf[], size_t buflen, const char *tail)
+{
+  const char *home;
+  int len;
 
   home = get_home ();
-  snprintf (buf, buflen, "%s/.authenticate/%s", home, tail);
-  return buf;
+  len = snprintf (buf, buflen, "%s/.authenticate/%s", home, tail);
+  return (len >= 0 && (size_t) len < buflen) ? buf : NULL;
 }
+
+static char *
+host_pathname (char buf[], size_t buflen, smtp_session_t session,
+	       const char *tail)
+{
+  const char *home, *host;
+  int len;
+
+  home = get_home ();
+  /* use the canonic hostname if available */
+  host = session->canon != NULL ? session->canon : session->host;
+  len = snprintf (buf, buflen, "%s/.authenticate/%s/%s", home, host, tail);
+  return (len >= 0 && (size_t) len < buflen) ? buf : NULL;
+}
+
+#endif
 
 typedef enum { FILE_PROBLEM, FILE_NOT_PRESENT, FILE_OK } ckf_t;
 
@@ -126,6 +167,9 @@ static ckf_t
 check_file (const char *file)
 {
   struct stat st;
+
+  if (file == NULL)
+    return FILE_PROBLEM;
 
   errno = 0;
   if (stat (file, &st) < 0)
@@ -150,6 +194,9 @@ check_directory (const char *file)
 {
   struct stat st;
 
+  if (file == NULL)
+    return FILE_PROBLEM;
+
   if (stat (file, &st) < 0)
     return (errno == ENOENT) ? FILE_NOT_PRESENT : FILE_PROBLEM;
   /* File must be a directory */
@@ -163,13 +210,20 @@ check_directory (const char *file)
 
 /* ^^^^^^^^^^^ */
 
-/* Unusually this API does not require a smtp_session_t.  The data
-   it sets is global.
-
-   N.B.  If this API is not called and OpenSSL requires a password, it
-         will supply a default callback which prompts on the user's tty.
-         This is likely to be undesired behaviour, so the app should
-         supply a callback using this function.
+/**
+ * smtp_starttls_set_password_cb() - Set OpenSSL password callback.
+ * @cb: Password callback with signature &smtp_starttls_passwordcb_t.
+ * @arg: User data passed to the callback.
+ *
+ * Set password callback function for OpenSSL. Unusually this API does not
+ * require a &typedef smtp_session_t as the data it sets is global.
+ *
+ * N.B.  If this API is not called and OpenSSL requires a password, it will
+ * supply a default callback which prompts on the user's tty.  This is likely
+ * to be undesired behaviour, so the app should supply a callback using this
+ * function.
+ *
+ * Returns: Zero on failure, non-zero on success.
  */
 int
 smtp_starttls_set_password_cb (smtp_starttls_passwordcb_t cb, void *arg)
@@ -187,76 +241,35 @@ smtp_starttls_set_password_cb (smtp_starttls_passwordcb_t cb, void *arg)
   return 1;
 }
 
-static SSL_CTX *
-starttls_create_ctx (smtp_session_t session)
+static int
+starttls_init_ctx (smtp_session_t session, SSL_CTX *ctx)
 {
-  SSL_CTX *ctx;
   char buf[2048];
-  char buf2[2048];
+  char buf2[2016];
   char *keyfile, *cafile, *capath;
   ckf_t status;
 
-  /* The decision not to support SSL v2 and v3 but instead to use only
-     TLSv1 is deliberate.  This is in line with the intentions of RFC
-     3207.  Servers typically support SSL as well as TLS because some
-     versions of Netscape do not support TLS.  I am assuming that all
-     currently deployed servers correctly support TLS.  */
-  ctx = SSL_CTX_new (TLSv1_client_method ());
-
   /* Load our keys and certificates.  To avoid messing with configuration
-     variables etc, use fixed paths for the certificate store.  These are
+     variables etc, use fixed paths for the certificate store.	These are
      as follows :-
 
      ~/.authenticate/private/smtp-starttls.pem
-     				the user's certificate and private key
+				the user's certificate and private key
      ~/.authenticate/ca.pem
-     				the user's trusted CA list
+				the user's trusted CA list
      ~/.authenticate/ca
-     				the user's hashed CA directory
+				the user's hashed CA directory
 
-     Host specific stuff follows the same structure except that its
+     Host specific stuff follows the same structure except that it is
      below ~/.authenticate/host.name
 
-     It probably makes sense to check that the directories and/or files
-     are readable only by the user who owns them.
-
-     This structure will certainly change.  I'm on a voyage of discovery
-     here!  Eventually, this code and the SASL stuff will become a
-     separate library used by libESMTP (libAUTH?).  The general idea is
-     that ~/.authenticate will be used to store authentication
-     information for the user (eventually there might be a
-     ({/usr{/local}}/etc/authenticate for system wide stuff - CA lists
-     and CRLs for example).  The "private" subdirectory is just to
-     separate out private info from others.  There might be a "public"
-     directory too.  Since the CA list is global (I think) I've put them
-     below .authenticate for now.  Within the "private" and "public"
-     directories, certificates and other authentication data are named
-     according to their purpose (hence smtp-starttls.pem).  Symlinks can
-     be used to avoid duplication where authentication tokens are shared
-     for several purposes.  My reasoning here is that libESMTP (or any
-     client layered over the hypothetical libAUTH) will always want the
-     same authentication behaviour for a given service, regardless of
-     the application using it.
-
-     XXX - The above isn't quite enough.  Per-host directories are
-     required, e.g. a different smtp-starttls.pem might be needed for
-     different servers.  This will not affect the trusted CAs though.
-
-     XXX - (this comment belongs in auth-client.c) Ideally, the
-     ~/.authenticate hierarchy will be able to store SASL passwords
-     if required, preferably encrypted.  Then the application would
-     not necessarily have to supply usernames and passwords via the
-     libESMTP API to be able to authenticate to a server.
+     Files and directories must be readable only by their owner.
+     User certificates are presented to the server only on request.
    */
-
-  /* Client certificate policy: if a client certificate is found at
-     ~/.authenticate/private/smtp-starttls.pem, it is presented to the
-     server if it requests it.  The server may use the certificate to
-     perform authentication at its own discretion. */
   if (ctx_password_cb != NULL)
     {
       SSL_CTX_set_default_passwd_cb (ctx, ctx_password_cb);
-      SSL_CTX_set_default_passwd_cb_userdata (ctx, ctx_password_cb_arg); 
+      SSL_CTX_set_default_passwd_cb_userdata (ctx, ctx_password_cb_arg);
     }
   keyfile = user_pathname (buf, sizeof buf, "private/smtp-starttls.pem");
   status = check_file (keyfile);
@@ -265,7 +278,7 @@ starttls_create_ctx (smtp_session_t session)
       if (!SSL_CTX_use_certificate_file (ctx, keyfile, SSL_FILETYPE_PEM))
 	{
 	  /* FIXME: set an error code */
-	  return NULL;
+	  return 0;
 	}
       if (!SSL_CTX_use_PrivateKey_file (ctx, keyfile, SSL_FILETYPE_PEM))
 	{
@@ -273,8 +286,8 @@ starttls_create_ctx (smtp_session_t session)
 	  if (session->event_cb != NULL)
 	    (*session->event_cb) (session, SMTP_EV_NO_CLIENT_CERTIFICATE,
 				  session->event_cb_arg, &ok);
-	  if (!ok) 
-            return NULL;
+	  if (!ok)
+	    return 0;
 	}
     }
   else if (status == FILE_PROBLEM)
@@ -282,7 +295,7 @@ starttls_create_ctx (smtp_session_t session)
       if (session->event_cb != NULL)
 	(*session->event_cb) (session, SMTP_EV_UNUSABLE_CLIENT_CERTIFICATE,
 			      session->event_cb_arg, NULL);
-      return NULL;
+      return 0;
     }
 
   /* Server certificate policy: check the server certificate against the
@@ -296,7 +309,7 @@ starttls_create_ctx (smtp_session_t session)
       if (session->event_cb != NULL)
 	(*session->event_cb) (session, SMTP_EV_UNUSABLE_CA_LIST,
 			      session->event_cb_arg, NULL);
-      return NULL;
+      return 0;
     }
   capath = user_pathname (buf2, sizeof buf2, "ca");
   status = check_directory (capath);
@@ -307,7 +320,7 @@ starttls_create_ctx (smtp_session_t session)
       if (session->event_cb != NULL)
 	(*session->event_cb) (session, SMTP_EV_UNUSABLE_CA_LIST,
 			      session->event_cb_arg, NULL);
-      return NULL;
+      return 0;
     }
 
   /* Load the CAs we trust */
@@ -316,16 +329,56 @@ starttls_create_ctx (smtp_session_t session)
   else
     SSL_CTX_set_default_verify_paths (ctx);
 
-  /* FIXME: load a source of randomness */
+  return 1;
+}
 
+static SSL_CTX *
+starttls_create_ctx (smtp_session_t session)
+{
+  SSL_CTX *ctx;
+  static SSL_CTX *starttls_ctx;
+
+#ifdef USE_PTHREADS
+  pthread_mutex_lock (&starttls_mutex);
+#endif
+  if (starttls_ctx != NULL)
+    ctx = starttls_ctx;
+  else
+    {
+      /* The decision not to support SSL v2 and v3 but instead to use only
+	 TLSv1.X is deliberate.  This is in line with the intentions of RFC
+	 3207.  Servers typically support SSL as well as TLS because some
+	 versions of Netscape do not support TLS.  I am assuming that all
+	 currently deployed servers correctly support TLS.	*/
+      ctx = SSL_CTX_new (TLS_client_method ());
+      if (ctx != NULL)
+	{
+	  SSL_CTX_set_min_proto_version (ctx, TLS1_VERSION);
+
+	  if (!starttls_init_ctx (session, ctx))
+	    {
+	      SSL_CTX_free (ctx);
+	      ctx = NULL;
+	    }
+	}
+      starttls_ctx = ctx;
+    }
+#ifdef USE_PTHREADS
+  pthread_mutex_unlock (&starttls_mutex);
+#endif
   return ctx;
+}
+
+void
+destroy_starttls_context (smtp_session_t session)
+{
+  SSL_CTX_free (session->starttls_ctx);
 }
 
 static SSL *
 starttls_create_ssl (smtp_session_t session)
 {
   char buf[2048];
-  char buf2[2048];
   char *keyfile;
   SSL *ssl;
   ckf_t status;
@@ -333,21 +386,18 @@ starttls_create_ssl (smtp_session_t session)
   ssl = SSL_new (session->starttls_ctx);
 
   /* Client certificate policy: if a host specific client certificate
-     is found at ~/.authenticate/host.name/private/smtp-starttls.pem,
-     it is presented to the server if it requests it. */
+     is found it is presented to the server if requested. */
 
-  /* FIXME: when the default client certificate is loaded a passowrd may be
-            required.  Then the code below might ask for one too.  It
-            will be annoying when two passwords are needed and only one
-            is necessary.  Also, the default certificate will only need
-            the password when the SSL_CTX is created.  A host specific
-            certificate's password will be needed for every SMTP session
-            within an application.  This needs a solution.  */
-
-  /* FIXME: in protocol.c, record the canonic name of the host returned
-	    by getaddrinfo.  Use that instead of session->host. */
-  snprintf (buf2, sizeof buf2, "%s/private/smtp-starttls.pem", session->host);
-  keyfile = user_pathname (buf, sizeof buf, buf2);
+#ifdef USE_XDG_DIRS
+  /* check for client certificate file:
+     ~/<xdg-config>/libesmtp/private/<host>.pem */
+  keyfile = host_pathname (buf, sizeof buf, session, "private", "pem");
+#else
+  /* check for client certificate file:
+     ~/.authenticate/<host>/private/smtp-starttls.pem */
+  keyfile = host_pathname (buf, sizeof buf, session,
+  			   "private/smtp-starttls.pem");
+#endif
   status = check_file (keyfile);
   if (status == FILE_OK)
     {
@@ -362,8 +412,8 @@ starttls_create_ssl (smtp_session_t session)
 	  if (session->event_cb != NULL)
 	    (*session->event_cb) (session, SMTP_EV_NO_CLIENT_CERTIFICATE,
 				  session->event_cb_arg, &ok);
-	  if (!ok) 
-            return NULL;
+	  if (!ok)
+	    return NULL;
 	}
     }
   else if (status == FILE_PROBLEM)
@@ -377,21 +427,41 @@ starttls_create_ssl (smtp_session_t session)
   return ssl;
 }
 
-/* App calls this to allow libESMTP to use an SSL_CTX it has already
-   initialised.  NULL means use a default created by libESMTP.
-   If called at all, libESMTP assumes the application has initialised
-   openssl.  Otherwise, libESMTP will initialise OpenSSL before calling
-   any of the SSL APIs. */
+/**
+ * smtp_starttls_set_ctx() - Set the SSL_CTX for the SMTP session.
+ * @session: The session.
+ * @ctx: An SSL_CTX initialised by the application.
+ *
+ * Use an SSL_CTX created and initialised by the application.  The SSL_CTX
+ * must be created by the application which is assumed to have also initialised
+ * the OpenSSL library.
+ *
+ * If not used, or @ctx is %NULL, OpenSSL is automatically initialised before
+ * calling any of the OpenSSL API functions.
+ *
+ * Returns: Zero on failure, non-zero on success.
+ */
 int
 smtp_starttls_set_ctx (smtp_session_t session, SSL_CTX *ctx)
 {
   SMTPAPI_CHECK_ARGS (session != NULL, 0);
 
-  tls_init = 1;			/* Assume app has set up openssl */
+  SSL_CTX_up_ref (ctx);
   session->starttls_ctx = ctx;
   return 1;
 }
 
+/**
+ * smtp_starttls_enable() - Enable STARTTLS verb.
+ * @session: The session.
+ * @how: A &enum starttls_option
+ *
+ * Enable the SMTP STARTTLS verb if @how is not %Starttls_DISABLED.  If set to
+ * %Starttls_REQUIRED the protocol will quit rather than transferring any
+ * messages if the STARTTLS extension is not available.
+ *
+ * Returns: Zero on failure, non-zero on success.
+ */
 /* how == 0: disabled, 1: if possible, 2: required */
 int
 smtp_starttls_enable (smtp_session_t session, enum starttls_option how)
@@ -412,106 +482,34 @@ select_starttls (smtp_session_t session)
   if (session->using_tls || session->authenticated)
     return 0;
   /* FIXME: if the server has reported the TLS extension in a previous
-            session promote Starttls_ENABLED to Starttls_REQUIRED.
-            If this session does not offer STARTTLS, this will force
-            protocol.c to report the extension as not available and QUIT
-            as reccommended in RFC 3207.  This requires some form of db
+	    session promote Starttls_ENABLED to Starttls_REQUIRED.
+	    If this session does not offer STARTTLS, this will force
+	    protocol.c to report the extension as not available and QUIT
+	    as recommended in RFC 3207.  This requires some form of db
 	    storage to record this for future sessions. */
   /* if (...)
       session->starttls_enabled = Starttls_REQUIRED; */
   if (!(session->extensions & EXT_STARTTLS))
     return 0;
-  if (!session->starttls_enabled)
+  if (session->starttls_enabled == Starttls_DISABLED)
     return 0;
-#ifdef USE_PTHREADS
-  pthread_mutex_lock (&starttls_mutex);
-#endif
-  if (starttls_ctx == NULL && starttls_init ())
-    starttls_ctx = starttls_create_ctx (session);
-#ifdef USE_PTHREADS
-  pthread_mutex_unlock (&starttls_mutex);
-#endif
-  session->starttls_ctx = starttls_ctx;
+  /* Create a CTX if the application has not already done so. */
+  if (session->starttls_ctx == NULL)
+    session->starttls_ctx = starttls_create_ctx (session);
   return session->starttls_ctx != NULL;
-}
-
-static int
-match_component (const char *dom, const char *edom,
-                 const char *ref, const char *eref)
-{
-  /* If ref is the single character '*' then accept this as a wildcard
-     matching any valid domainname component, i.e. characters from the
-     range A-Z, a-z, 0-9, - or _ 
-     NB this is more restrictive than RFC 2818 which allows multiple
-     wildcard characters in the component pattern */
-  if (eref == ref + 1 && *ref == '*')
-    while (dom < edom)
-      {
-	if (!(isalnum (*dom) || *dom == '-' /*|| *dom == '_'*/))
-	  return 0;
-        dom++;
-      }
-  else
-    {
-      while (dom < edom && ref < eref)
-	{
-	  /* check for valid domainname character */
-	  if (!(isalnum (*dom) || *dom == '-' /*|| *dom == '_'*/))
-	    return 0;
-	  /* compare the domain name case-insensitively */
-	  if (!(*dom == *ref || tolower (*dom) == tolower (*ref)))
-	    return 0;
-	  ref++, dom++;
-	}
-      if (dom < edom || ref < eref)
-	return 0;
-    }
-  return 1;
-}
-
-/* Perform a domain name comparison where the reference may contain
-   wildcards.  This implements the comparison from RFC 2818.
-   Each component of the domain name is matched separately, working from
-   right to left.
- */
-static int
-match_domain (const char *domain, const char *reference)
-{
-  const char *dom, *edom, *ref, *eref;
-
-  eref = strchr (reference, '\0');
-  edom = strchr (domain, '\0');
-  while (eref > reference && edom > domain)
-    {
-      /* Find the rightmost component of the reference. */
-      ref = memrchr (reference, '.', eref - reference - 1);
-      if (ref != NULL)
-        ref++;
-      else
-        ref = reference;
-
-      /* Find the rightmost component of the domain name. */
-      dom = memrchr (domain, '.', edom - domain - 1);
-      if (dom != NULL)
-        dom++;
-      else
-        dom = domain;
-
-      if (!match_component (dom, edom, ref, eref))
-        return 0;
-      edom = dom - 1;
-      eref = ref - 1;
-    }
-  return eref < reference && edom < domain;
 }
 
 static int
 check_acceptable_security (smtp_session_t session, SSL *ssl)
 {
   X509 *cert;
+  const char *host;
   int bits;
   long vfy_result;
   int ok;
+
+  /* use canonic hostname for validation if available */
+  host = session->canon != NULL ? session->canon : session->host;
 
   /* Check certificate validity.
    */
@@ -526,8 +524,8 @@ check_acceptable_security (smtp_session_t session, SSL *ssl)
 	return 0;
 #if 0
       /* Not sure about the location of this call so leave it out for now
-         - from Pawel: the worst thing that can happen is that one can
-         get non-empty  error log in wrong places. */
+	 - from Pawel: the worst thing that can happen is that one can
+	 get non-empty	error log in wrong places. */
       ERR_clear_error ();	/* we know what is going on, clear the error log */
 #endif
     }
@@ -576,14 +574,10 @@ check_acceptable_security (smtp_session_t session, SSL *ssl)
 		  size_t ia5len = name->d.ia5->length;
 
 		  hasaltname = 1;
-		  if (strlen (ia5str) == ia5len
-		      && match_domain (session->host, ia5str))
+		  if (strlen (ia5str) == ia5len && match_domain (host, ia5str))
 		    ok = 1;
 		  else
-		    {
-		      buf[0] = '\0';
-		      strncat (buf, ia5str, sizeof buf - 1);
-		    }
+		    strlcpy (buf, ia5str, sizeof buf);
 		}
 	      // TODO: handle GEN_IPADD
 	    }
@@ -611,20 +605,18 @@ check_acceptable_security (smtp_session_t session, SSL *ssl)
 						X509_NAME_get_entry (subj, idx)
 						     )) != NULL)
 		{
-		  unsigned char *str = NULL;
-		  size_t len = ASN1_STRING_to_UTF8 (&str, cn);
+		  unsigned char *ustr = NULL;
+		  const char *str;
+		  size_t len;
 
-		  if (str != NULL)
+		  len = ASN1_STRING_to_UTF8 (&ustr, cn);
+		  if ((str = (const char *) ustr) != NULL)
 		    {
-		      if (strlen ((char *) str) == len
-			  && match_domain (session->host, (char *) str))
+		      if (strlen (str) == len && match_domain (host, str))
 			ok = 1;
 		      else
-			{
-			  buf[0] = '\0';
-			  strncat (buf, (char *) str, sizeof buf - 1);
-			}
-		      OPENSSL_free (str);
+			strlcpy (buf, str, sizeof buf);
+		      OPENSSL_free (ustr);
 		    }
 		}
 	    }
@@ -664,7 +656,7 @@ rsp_starttls (siobuf_t conn, smtp_session_t session)
   if (code != 2)
     {
       if (code != 4 && code != 5)
-        set_error (SMTP_ERR_INVALID_RESPONSE_STATUS);
+	set_error (SMTP_ERR_INVALID_RESPONSE_STATUS);
       session->rsp_state = S_quit;
     }
   else if (sio_set_tlsclient_ssl (conn, (ssl = starttls_create_ssl (session))))
@@ -679,7 +671,7 @@ rsp_starttls (siobuf_t conn, smtp_session_t session)
       if (!check_acceptable_security (session, ssl))
 	session->rsp_state = S_quit;
       else
-        {
+	{
 	  if (session->event_cb != NULL)
 	    (*session->event_cb) (session, SMTP_EV_STARTTLS_OK,
 				  session->event_cb_arg,
@@ -700,7 +692,7 @@ rsp_starttls (siobuf_t conn, smtp_session_t session)
 
 	  /* Next state is EHLO */
 	  session->rsp_state = S_ehlo;
-        }
+	}
     }
   else
     {
@@ -722,7 +714,7 @@ int smtp_starttls_set_ctx (smtp_session_t session, SSL_CTX *ctx);
 
 int
 smtp_starttls_set_ctx (smtp_session_t session,
-                       SSL_CTX *ctx __attribute__ ((unused)))
+		       SSL_CTX *ctx __attribute__ ((unused)))
 {
   SMTPAPI_CHECK_ARGS (session != (smtp_session_t) 0, 0);
 
@@ -731,7 +723,7 @@ smtp_starttls_set_ctx (smtp_session_t session,
 
 int
 smtp_starttls_enable (smtp_session_t session,
-                      enum starttls_option how __attribute__ ((unused)))
+		      enum starttls_option how __attribute__ ((unused)))
 {
   SMTPAPI_CHECK_ARGS (session != (smtp_session_t) 0, 0);
 
@@ -741,7 +733,7 @@ smtp_starttls_enable (smtp_session_t session,
 int
 smtp_starttls_set_password_cb (smtp_starttls_passwordcb_t cb
 							__attribute__ ((unused)),
-                               void *arg __attribute__ ((unused)))
+			       void *arg __attribute__ ((unused)))
 {
   return 0;
 }
