@@ -2,7 +2,7 @@ Source: libesmtp
 Section: libs
 Priority: optional
 Maintainer: Jeremy T. Bouse <jbouse@debian.org>
-Build-Depends: debhelper (>> 12.0.0),
+Build-Depends: debhelper,
 	libltdl3-dev,
 	libssl-dev,
 	python3-pkgconfig,
