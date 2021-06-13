@@ -1,3 +1,15 @@
+libesmtp (1.1.0-2) unstable; urgency=medium
+
+  [ Debian Janitor ]
+  * Remove constraints unnecessary since stretch
+
+  [ Jeremy T. Bouse ]
+  * Remove old outdate build script files
+  * Add missing changelog entries for NMUs (Closes: 989766)
+  * Rebuild source-only (Closes: 989767)
+
+ -- Jeremy T. Bouse <jbouse@debian.org>  Sat, 12 Jun 2021 21:24:30 -0400
+
 libesmtp (1.1.0-1) unstable; urgency=medium
 
   * debian/watch: Update to new upstream URL
