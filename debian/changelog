@@ -7,6 +7,28 @@ libesmtp (1.1.0-1) unstable; urgency=medium
 
  -- Jeremy T. Bouse <jbouse@debian.org>  Mon, 07 Jun 2021 21:51:44 -0400
 
+ libesmtp (1.0.6-4.3) unstable; urgency=medium
+
+  * Non-maintainer upload.
+  * Add add-TLSv1_1-TLSv1_2-support.patch patch.
+    Add support for TLSv1.1+. (Closes: #802658)
+
+ -- Salvatore Bonaccorso <carnil@debian.org>  Mon, 07 Aug 2017 10:52:01 +0200
+
+libesmtp (1.0.6-4.2) unstable; urgency=medium
+
+  * Non-maintainer upload.
+  * Drop "-lssl -lcrypto" from exported libs flags (Closes: #852884).
+
+ -- Sebastian Andrzej Siewior <sebastian@breakpoint.cc>  Tue, 31 Jan 2017 23:51:33 +0100
+
+libesmtp (1.0.6-4.1) unstable; urgency=medium
+
+  * Non-maintainer upload
+  * Add patch to fix OpenSSL check (Closes: #844254)
+
+ -- Hilko Bengen <bengen@debian.org>  Fri, 18 Nov 2016 23:28:19 +0100
+
 libesmtp (1.0.6-4) unstable; urgency=medium
 
   * Fix FTBFS bug replacing autotools-dev with autoreconf.
