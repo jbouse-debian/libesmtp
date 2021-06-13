@@ -7,7 +7,7 @@ libesmtp (1.1.0-1) unstable; urgency=medium
 
  -- Jeremy T. Bouse <jbouse@debian.org>  Mon, 07 Jun 2021 21:51:44 -0400
 
- libesmtp (1.0.6-4.3) unstable; urgency=medium
+libesmtp (1.0.6-4.3) unstable; urgency=medium
 
   * Non-maintainer upload.
   * Add add-TLSv1_1-TLSv1_2-support.patch patch.
