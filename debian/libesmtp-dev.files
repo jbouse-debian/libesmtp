@@ -1,5 +1,0 @@
-usr/lib/*/*.a
-usr/lib/*/esmtp-plugins-*/*.a
-usr/lib/*/*.so
-usr/lib/*/pkgconfig
-usr/include

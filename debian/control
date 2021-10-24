@@ -2,10 +2,10 @@ Source: libesmtp
 Section: libs
 Priority: optional
 Maintainer: Jeremy T. Bouse <jbouse@debian.org>
-Build-Depends: debhelper,
+Build-Depends: debhelper-compat (=13),
 	libltdl3-dev,
 	libssl-dev,
-	python3-pkgconfig,
+	pkg-config,
 	meson,
 	ninja-build
 Standards-Version: 4.5.1
@@ -15,6 +15,7 @@ Vcs-Browser: https://github.com/jbouse-debian/libesmtp
 
 Package: libesmtp6
 Architecture: any
+Multi-Arch: same
 Depends: ${shlibs:Depends}, ${misc:Depends}
 Replaces: libesmtp5
 Description: LibESMTP SMTP client library
@@ -26,6 +27,7 @@ Description: LibESMTP SMTP client library
 
 Package: libesmtp-dev
 Architecture: any
+Multi-Arch: same
 Section: libdevel
 Depends: libesmtp6 (= ${binary:Version}), libc6-dev, ${misc:Depends}
 Description: LibESMTP SMTP client library (development files)
